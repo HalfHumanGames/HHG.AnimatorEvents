@@ -1,0 +1,26 @@
+{
+  "name": "com.halfhumangames.animatorevents",
+  "version": "1.0.0",
+  "displayName": "HHG - Animator Events",
+  "description": "Animator events for Unity",
+  "unity": "2020.3",
+  "unityRelease": "6f1",
+  "documentationUrl": "https://github.com/HalfHumanGames/AnimatorEvents/blob/main/README.md",
+  "changelogUrl": "https://github.com/HalfHumanGames/AnimatorEvents/blob/main/CHANGELOG.md",
+  "licensesUrl": "https://github.com/HalfHumanGames/AnimatorEvents/blob/main/LICENSE",
+  "keywords": [
+    "Animator",
+    "Animation",
+    "Events",
+    "Mecanim"
+  ],
+  "author": {
+    "name": "Half Human Games",
+    "email": "contact@halfhumangames.com",
+    "url": "https://halfhumangames.com/"
+  },
+  "type": "library",
+  "dependencies": {
+    "com.halfhumangames.common": "1.0.0"
+  }
+}
