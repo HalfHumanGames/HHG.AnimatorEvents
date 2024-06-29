@@ -17,10 +17,10 @@
   "author": {
     "name": "Half Human Games",
     "email": "contact@halfhumangames.com",
-    "url": "https://github.com/HalfHumanGames"
+    "url": "https://halfhumangames.com/"
   },
+  "type": "library",
   "dependencies": {
-    "com.halfhumangames.common": "1.0.0",
-    "com.unity.textmeshpro": "3.0.6"
+    "com.halfhumangames.common": "1.0.0"
   }
 }
