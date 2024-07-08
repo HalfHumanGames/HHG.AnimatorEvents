@@ -139,7 +139,7 @@ namespace HHG.AnimatorEvents.Runtime
             {
                 return false;
             }
-            int loopCount = (int)previousStateInfo.normalizedTime / 1;
+            int loopCount = (int)(previousStateInfo.normalizedTime / 1f);
             bool invokedThisLoop = invocatonCountByFullPathHash[fullPathHash] > loopCount;
             if (invokedThisLoop)
             {
@@ -156,7 +156,7 @@ namespace HHG.AnimatorEvents.Runtime
         private bool CanInvokeAnimatorEventForCurrentState(int layer, int fullPathHash, AnimatorEvent evt)
         {
             AnimatorStateInfo currentStateInfo = Animator.GetCurrentAnimatorStateInfo(layer);
-            bool isFirstLoopInState = currentStateInfo.normalizedTime < 1;
+            bool isFirstLoopInState = currentStateInfo.normalizedTime < 1f;
             if (isFirstLoopInState)
             {
                 bool isNewState = !previousStateInfos.ContainsKey(layer) || previousStateInfos[layer].fullPathHash != fullPathHash;
@@ -179,7 +179,7 @@ namespace HHG.AnimatorEvents.Runtime
             {
                 return false;
             }
-            int loopCount = (int)currentStateInfo.normalizedTime / 1;
+            int loopCount = (int)(currentStateInfo.normalizedTime / 1f);
             bool invokedThisLoop = invocatonCountByFullPathHash[fullPathHash] > loopCount;
             if (invokedThisLoop)
             {
@@ -189,7 +189,7 @@ namespace HHG.AnimatorEvents.Runtime
                 currentStateInfo.normalizedTime :
                 currentStateInfo.normalizedTime * currentStateInfo.length;
             float currentTime = evt.UseNormalizedTime ?
-                totalTime % 1 : totalTime % currentStateInfo.length;
+                totalTime % 1f : totalTime % currentStateInfo.length;
             bool canInvoke = currentTime > evt.Time || loopCount > invocatonCountByFullPathHash[fullPathHash];
             if (canInvoke)
             {
