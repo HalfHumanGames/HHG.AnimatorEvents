@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace HHG.AnimatorEvents.Runtime
@@ -9,7 +10,7 @@ namespace HHG.AnimatorEvents.Runtime
 
         [SerializeField] private List<AnimatorEvent> events = new List<AnimatorEvent>();
 
-        private List<AnimatorEvent> uncachedEvents; // Not initialzied since initialzied in Awake
+        private List<AnimatorEvent> uncachedEvents; // Not initialized since initialized in Awake
         private Dictionary<int, List<AnimatorEvent>> eventsByFullPathHash = new Dictionary<int, List<AnimatorEvent>>();
         private Dictionary<int, int> invocatonCountByFullPathHash = new Dictionary<int, int>();
         private Dictionary<int, AnimatorStateInfo> previousStateInfos = new Dictionary<int, AnimatorStateInfo>();
@@ -17,7 +18,7 @@ namespace HHG.AnimatorEvents.Runtime
         private void Awake()
         {
             GetAnimator();
-            uncachedEvents = new List<AnimatorEvent>(events);
+            uncachedEvents = new List<AnimatorEvent>(events.Select(e => e.Clone()));
         }
 
         public void GetAnimator()
@@ -61,17 +62,20 @@ namespace HHG.AnimatorEvents.Runtime
                 for (int j = 0; j < uncachedEvents[i].States.Count; j++)
                 {
                     AnimatorStateReference state = uncachedEvents[i].States[j];
-                    int layer = state.LayerIndex;
-                    AnimatorStateInfo stateInfo = Animator.GetCurrentAnimatorStateInfo(layer);
+                    AnimatorStateInfo stateInfo = Animator.GetCurrentAnimatorStateInfo(state.LayerIndex);
+
                     if (stateInfo.IsName(state.StateName))
                     {
                         int fullPathHash = stateInfo.fullPathHash;
+
                         if (!eventsByFullPathHash.ContainsKey(fullPathHash))
                         {
                             eventsByFullPathHash.Add(fullPathHash, new List<AnimatorEvent>());
                         }
+
                         eventsByFullPathHash[fullPathHash].Add(uncachedEvents[i]);
                         uncachedEvents[i].States.RemoveAt(j);
+
                         if (uncachedEvents[i].States.Count == 0)
                         {
                             uncachedEvents.RemoveAt(i--);
@@ -127,29 +131,33 @@ namespace HHG.AnimatorEvents.Runtime
                 {
                     previousStateInfos.Add(layer, default);
                 }
+
                 previousStateInfos[layer] = currentStateInfo;
             }
         }
 
         private bool CanInvokeAnimatorEventForPreviousState(int layer, int fullPathHash, AnimatorEvent evt)
         {
-            AnimatorStateInfo previousStateInfo = previousStateInfos[layer];
             bool hasInvoked = invocatonCountByFullPathHash[fullPathHash] > 0;
             if (evt.Mode == AnimatorEvent.InvokeMode.Once && hasInvoked)
             {
                 return false;
             }
+
+            AnimatorStateInfo previousStateInfo = previousStateInfos[layer];
             int loopCount = (int)(previousStateInfo.normalizedTime / 1f);
             bool invokedThisLoop = invocatonCountByFullPathHash[fullPathHash] > loopCount;
             if (invokedThisLoop)
             {
                 return false;
             }
+
             bool canInvoke = loopCount >= invocatonCountByFullPathHash[fullPathHash];
             if (canInvoke)
             {
                 invocatonCountByFullPathHash[fullPathHash]++;
             }
+
             return canInvoke;
         }
 
@@ -179,22 +187,22 @@ namespace HHG.AnimatorEvents.Runtime
             {
                 return false;
             }
+
             int loopCount = (int)(currentStateInfo.normalizedTime / 1f);
             bool invokedThisLoop = invocatonCountByFullPathHash[fullPathHash] > loopCount;
             if (invokedThisLoop)
             {
                 return false;
             }
-            float totalTime = evt.UseNormalizedTime ?
-                currentStateInfo.normalizedTime :
-                currentStateInfo.normalizedTime * currentStateInfo.length;
-            float currentTime = evt.UseNormalizedTime ?
-                totalTime % 1f : totalTime % currentStateInfo.length;
+
+            float totalTime = evt.UseNormalizedTime ? currentStateInfo.normalizedTime : currentStateInfo.normalizedTime * currentStateInfo.length;
+            float currentTime = evt.UseNormalizedTime ? totalTime % 1f : totalTime % currentStateInfo.length;
             bool canInvoke = currentTime > evt.Time || loopCount > invocatonCountByFullPathHash[fullPathHash];
             if (canInvoke)
             {
                 invocatonCountByFullPathHash[fullPathHash]++;
             }
+
             return canInvoke;
         }
 
@@ -203,9 +211,11 @@ namespace HHG.AnimatorEvents.Runtime
             GetAnimator();
         }
 
-        private void Reset()
+        public void Reset()
         {
             GetAnimator();
+            invocatonCountByFullPathHash.Clear();
+            previousStateInfos.Clear();
         }
     }
 
