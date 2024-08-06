@@ -14,7 +14,7 @@ namespace HHG.AnimatorEvents.Runtime
             Once,
         }
 
-        public List<AnimatorStateReference> States = new List<AnimatorStateReference>();
+        public List<string> Tags = new List<string>();
         public InvokeMode Mode;
         public bool UseNormalizedTime;
         public float Time;
@@ -24,7 +24,7 @@ namespace HHG.AnimatorEvents.Runtime
         {
             return new AnimatorEvent
             {
-                States = new List<AnimatorStateReference>(States),
+                Tags = new List<string>(Tags),
                 Mode = Mode,
                 UseNormalizedTime = UseNormalizedTime,
                 Time = Time,
