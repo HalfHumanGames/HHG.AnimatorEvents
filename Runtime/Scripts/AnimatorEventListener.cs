@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -11,7 +12,7 @@ namespace HHG.AnimatorEvents.Runtime
 
         private Dictionary<int, List<AnimatorEvent>> eventCache = new Dictionary<int, List<AnimatorEvent>>();
         private Dictionary<int, int> invocatonCountByFullPathHash = new Dictionary<int, int>();
-        private Dictionary<int, AnimatorStateInfo> previousStateInfos = new Dictionary<int, AnimatorStateInfo>();
+        private AnimatorStateInfo[] previousStateInfos = new AnimatorStateInfo[0];
 
         private void Awake()
         {
@@ -30,6 +31,7 @@ namespace HHG.AnimatorEvents.Runtime
         private void RebuildEventCache()
         {
             eventCache.Clear();
+
             for (int i = 0; i < events.Count; i++)
             {
                 for (int j = 0; j < events[i].Tags.Count; j++)
@@ -45,6 +47,8 @@ namespace HHG.AnimatorEvents.Runtime
                     eventCache[hash].Add(events[i]);
                 }
             }
+
+            Array.Resize(ref previousStateInfos, Animator.layerCount);
         }
 
         public void AddEvent(AnimatorEvent animatorEvent)
@@ -61,49 +65,37 @@ namespace HHG.AnimatorEvents.Runtime
 
         private void LateUpdate()
         {
-            int layerCount = Animator.layerCount;
-
-            for (int layer = 0; layer < layerCount; layer++)
+            for (int layer = 0, layerCount = Animator.layerCount; layer < layerCount; layer++)
             {
                 AnimatorStateInfo currentStateInfo = Animator.GetCurrentAnimatorStateInfo(layer);
                 int currentStateFullPathHash = currentStateInfo.fullPathHash;
                 int currentStateTagHash = currentStateInfo.tagHash;
 
-                // Check previous state first, if different
-                if (previousStateInfos.ContainsKey(layer))
-                {
-                    AnimatorStateInfo previousStateInfo = previousStateInfos[layer];
-                    int previousStateFullPathHash = previousStateInfo.fullPathHash;
-                    int prevousStateTagHash = previousStateInfo.tagHash;
+                AnimatorStateInfo previousStateInfo = previousStateInfos[layer];
+                int previousStateFullPathHash = previousStateInfo.fullPathHash;
+                int previousStateTagHash = previousStateInfo.tagHash;
 
-                    bool isNewState = currentStateFullPathHash != previousStateFullPathHash;
-                    if (isNewState && eventCache.TryGetValue(prevousStateTagHash, out List<AnimatorEvent> events))
-                    {
-                        foreach (AnimatorEvent evt in events)
-                        {
-                            if (CanInvokeAnimatorEventForPreviousState(layer, previousStateFullPathHash, evt))
-                            {
-                                evt.Event?.Invoke();
-                            }
-                        }
-                    }
-                }
-
-                // Check current state next
-                if (eventCache.TryGetValue(currentStateTagHash, out List<AnimatorEvent> events2))
+                bool isNewState = currentStateFullPathHash != previousStateFullPathHash;
+                if (isNewState && eventCache.TryGetValue(previousStateTagHash, out List<AnimatorEvent> events))
                 {
-                    foreach (AnimatorEvent evt in events2)
+                    foreach (AnimatorEvent evt in events)
                     {
-                        if (CanInvokeAnimatorEventForCurrentState(layer, currentStateFullPathHash, evt))
+                        if (CanInvokeAnimatorEventForPreviousState(layer, previousStateFullPathHash, evt))
                         {
                             evt.Event?.Invoke();
                         }
                     }
                 }
 
-                if (!previousStateInfos.ContainsKey(layer))
+                if (eventCache.TryGetValue(currentStateTagHash, out List<AnimatorEvent> events2))
                 {
-                    previousStateInfos.Add(layer, default);
+                    foreach (AnimatorEvent evt in events2)
+                    {
+                        if (CanInvokeAnimatorEventForCurrentState(currentStateInfo, previousStateInfo, evt))
+                        {
+                            evt.Event?.Invoke();
+                        }
+                    }
                 }
 
                 previousStateInfos[layer] = currentStateInfo;
@@ -136,46 +128,49 @@ namespace HHG.AnimatorEvents.Runtime
             return canInvoke;
         }
 
-        private bool CanInvokeAnimatorEventForCurrentState(int layer, int fullPathHash, AnimatorEvent evt)
+        private bool CanInvokeAnimatorEventForCurrentState(AnimatorStateInfo currentStateInfo, AnimatorStateInfo previousStateInfo, AnimatorEvent evt)
         {
-            AnimatorStateInfo currentStateInfo = Animator.GetCurrentAnimatorStateInfo(layer);
-            bool isFirstLoopInState = currentStateInfo.normalizedTime < 1f;
+            int fullPathHash = currentStateInfo.fullPathHash;
+            float normalizedTime = currentStateInfo.normalizedTime;
+            bool isFirstLoopInState = normalizedTime < 1f;
+
             if (isFirstLoopInState)
             {
-                bool isNewState = !previousStateInfos.ContainsKey(layer) || previousStateInfos[layer].fullPathHash != fullPathHash;
+                int prevPathHash = previousStateInfo.fullPathHash;
+                bool isNewState = prevPathHash != fullPathHash;
+
                 if (isNewState)
                 {
                     invocatonCountByFullPathHash.Clear();
-                    invocatonCountByFullPathHash.Add(fullPathHash, 0);
                 }
             }
 
-            // This happens sometimes (not sure why) so I'm adding this just in case
-            if (!invocatonCountByFullPathHash.ContainsKey(fullPathHash))
-            {
-                invocatonCountByFullPathHash.Clear();
-                invocatonCountByFullPathHash.Add(fullPathHash, 0);
-            }
+            int invocations = invocatonCountByFullPathHash.TryGetValue(fullPathHash, out invocations) ? invocations : 0;
+            bool hasInvoked = invocations > 0;
 
-            bool hasInvoked = invocatonCountByFullPathHash[fullPathHash] > 0;
-            if (evt.Mode == AnimatorEvent.InvokeMode.Once && hasInvoked)
+            if (hasInvoked && evt.Mode == AnimatorEvent.InvokeMode.Once)
             {
                 return false;
             }
 
-            int loopCount = (int)(currentStateInfo.normalizedTime / 1f);
-            bool invokedThisLoop = invocatonCountByFullPathHash[fullPathHash] > loopCount;
+            int loopCount = (int)(normalizedTime / 1f);
+            bool invokedThisLoop = invocations > loopCount;
+
             if (invokedThisLoop)
             {
                 return false;
             }
 
-            float totalTime = evt.UseNormalizedTime ? currentStateInfo.normalizedTime : currentStateInfo.normalizedTime * currentStateInfo.length;
-            float currentTime = evt.UseNormalizedTime ? totalTime % 1f : totalTime % currentStateInfo.length;
-            bool canInvoke = currentTime > evt.Time || loopCount > invocatonCountByFullPathHash[fullPathHash];
+            bool useNormalized = evt.UseNormalizedTime;
+            float evtTime = evt.Time;
+            float length = currentStateInfo.length;
+            float totalTime = useNormalized ? normalizedTime : normalizedTime * length;
+            float currentTime = useNormalized ? totalTime % 1f : totalTime % length;
+            bool canInvoke = currentTime > evtTime || loopCount > invocations;
+
             if (canInvoke)
             {
-                invocatonCountByFullPathHash[fullPathHash]++;
+                invocatonCountByFullPathHash[fullPathHash] = invocations + 1;
             }
 
             return canInvoke;
@@ -190,7 +185,7 @@ namespace HHG.AnimatorEvents.Runtime
         {
             GetAnimator();
             invocatonCountByFullPathHash.Clear();
-            previousStateInfos.Clear();
+            Array.Fill(previousStateInfos, default);
         }
     }
 
