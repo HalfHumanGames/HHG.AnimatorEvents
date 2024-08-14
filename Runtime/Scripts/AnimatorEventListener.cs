@@ -76,19 +76,29 @@ namespace HHG.AnimatorEvents.Runtime
                 int previousStateTagHash = previousStateInfo.tagHash;
 
                 bool isNewState = currentStateFullPathHash != previousStateFullPathHash;
-                if (isNewState && eventCache.TryGetValue(previousStateTagHash, out List<AnimatorEvent> events))
+                if (isNewState)
                 {
-                    foreach (AnimatorEvent evt in events)
+                    if (eventCache.TryGetValue(previousStateTagHash, out List<AnimatorEvent> events))
                     {
-                        if (CanInvokeAnimatorEventForPreviousState(layer, previousStateFullPathHash, evt))
+                        foreach (AnimatorEvent evt in events)
                         {
-                            evt.Event?.Invoke();
+                            if (CanInvokeAnimatorEventForPreviousState(layer, previousStateFullPathHash, evt))
+                            {
+                                evt.Event?.Invoke();
+                            }
                         }
+
+                        invocatonCountByFullPathHash[previousStateFullPathHash] = 0;
                     }
                 }
 
                 if (eventCache.TryGetValue(currentStateTagHash, out List<AnimatorEvent> events2))
                 {
+                    if (isNewState)
+                    {
+                        invocatonCountByFullPathHash[currentStateFullPathHash] = 0;
+                    }
+
                     foreach (AnimatorEvent evt in events2)
                     {
                         if (CanInvokeAnimatorEventForCurrentState(currentStateInfo, previousStateInfo, evt))
@@ -120,11 +130,6 @@ namespace HHG.AnimatorEvents.Runtime
             }
 
             bool canInvoke = loopCount >= invocations;
-            if (canInvoke)
-            {
-                invocatonCountByFullPathHash[fullPathHash] = invocations++;
-            }
-
             return canInvoke;
         }
 
@@ -132,7 +137,7 @@ namespace HHG.AnimatorEvents.Runtime
         {
             int fullPathHash = currentStateInfo.fullPathHash;
             float normalizedTime = currentStateInfo.normalizedTime;
-            bool isFirstLoopInState = normalizedTime < 1f;
+            bool isFirstLoopInState = normalizedTime <= 1f;
 
             if (isFirstLoopInState)
             {
