@@ -1,6 +1,6 @@
 {
   "name": "com.halfhumangames.animatorevents",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "displayName": "HHG - Animator Events",
   "description": "Animator events for Unity",
   "unity": "2020.3",
@@ -20,6 +20,6 @@
     "url": "https://halfhumangames.com/"
   },
   "dependencies": {
-    "com.halfhumangames.common": "1.0.0"
+    "com.halfhumangames.common": "1.0.1"
   }
 }
